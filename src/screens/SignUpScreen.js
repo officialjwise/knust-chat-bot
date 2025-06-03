@@ -18,6 +18,7 @@ import { useNavigation } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { auth, db } from "../../firebase";
 import Config from "react-native-config";
+import axios from "axios";
 
 const SignUpScreen = () => {
   const [formData, setFormData] = useState({
@@ -66,30 +67,36 @@ const SignUpScreen = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${Config.API_BASE_URL}/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-        }),
+      console.log("API_BASE_URL:", Config.API_BASE_URL);
+      console.log("Sending signup request to:", `${Config.API_BASE_URL}/signup`);
+      console.log("Request payload:", {
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
       });
 
-      const data = await response.json();
+      const response = await axios.post(`${Config.API_BASE_URL}/signup`, {
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+      }, {
+        headers: { "Content-Type": "application/json" },
+        timeout: 10000, // 10-second timeout
+      });
 
-      if (!response.ok) throw new Error(data.error || "Signup failed");
+      console.log("Signup response:", response.status, response.data);
 
       const { signInWithCustomToken } = await import("firebase/auth");
-      const userCredential = await signInWithCustomToken(auth, data.customToken);
+      const userCredential = await signInWithCustomToken(auth, response.data.customToken);
       console.log("Signed up user:", userCredential.user.uid);
 
       const { doc, setDoc } = await import("firebase/firestore");
       await setDoc(
-        doc(db, "users", data.uid),
+        doc(db, "users", response.data.uid),
         {
-          uid: data.uid,
+          uid: response.data.uid,
           firstName: formData.firstName,
           lastName: formData.lastName,
           email: formData.email,
@@ -99,14 +106,43 @@ const SignUpScreen = () => {
         },
         { merge: true }
       );
-      console.log("Firestore user doc created for UID:", data.uid);
+      console.log("Firestore user doc created for UID:", response.data.uid);
 
       Alert.alert("Success!", "Your account has been created successfully. Please sign in to continue.", [
         { text: "OK", onPress: () => navigation.navigate("SignIn") },
       ]);
     } catch (error) {
-      console.error("Signup error:", error.code, error.message, error.stack);
-      Alert.alert("Error", error.message || "Something went wrong. Please try again.");
+      let errorMessage = "Failed to sign up. Please check your network and try again.";
+      if (error.response) {
+        // Server responded with a status other than 2xx
+        errorMessage = error.response.data.error || `Signup failed: ${error.response.status}`;
+        console.error("Signup error (response):", {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers,
+        });
+      } else if (error.request) {
+        // Request was made but no response received
+        errorMessage = "No response from server. Please check your network.";
+        console.error("Signup error (request):", error.request);
+      } else {
+        // Error setting up the request
+        errorMessage = error.message;
+        console.error("Signup error (setup):", error.message);
+      }
+      console.error("Signup error details:", {
+        message: errorMessage,
+        code: error.code,
+        stack: error.stack,
+        url: `${Config.API_BASE_URL}/signup`,
+        body: {
+          email: formData.email,
+          password: "****",
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+        },
+      });
+      Alert.alert("Error", errorMessage);
     } finally {
       setIsLoading(false);
     }

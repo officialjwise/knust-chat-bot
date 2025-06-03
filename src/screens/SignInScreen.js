@@ -19,6 +19,7 @@ import { useNavigation } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { auth } from "../../firebase";
 import Config from "react-native-config";
+import axios from "axios";
 
 const SignInScreen = ({ route }) => {
   const [formData, setFormData] = useState({
@@ -62,26 +63,22 @@ const SignInScreen = ({ route }) => {
     setIsLoading(true);
 
     try {
+      console.log("API_BASE_URL:", Config.API_BASE_URL);
       console.log("Attempting to sign in with URL:", `${Config.API_BASE_URL}/signin`);
-      const response = await fetch(`${Config.API_BASE_URL}/signin`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+      console.log("Request payload:", { email: formData.email, password: "****" });
+
+      const response = await axios.post(`${Config.API_BASE_URL}/signin`, {
+        email: formData.email,
+        password: formData.password,
+      }, {
+        headers: { "Content-Type": "application/json" },
+        timeout: 10000, // 10-second timeout
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `Sign in failed: ${response.status} ${response.statusText}`);
-      }
+      console.log("Signin response:", response.status, response.data);
 
       const { signInWithCustomToken } = await import("firebase/auth");
-      const userCredential = await signInWithCustomToken(auth, data.customToken);
+      const userCredential = await signInWithCustomToken(auth, response.data.customToken);
       console.log("Signed in user:", userCredential.user.uid);
 
       const idToken = await auth.currentUser.getIdToken();
@@ -89,7 +86,7 @@ const SignInScreen = ({ route }) => {
 
       await AsyncStorage.setItem("idToken", idToken);
       await AsyncStorage.setItem("userEmail", formData.email);
-      await AsyncStorage.setItem("userUid", data.uid);
+      await AsyncStorage.setItem("userUid", response.data.uid);
       console.log("AsyncStorage updated:", await AsyncStorage.multiGet(["idToken", "userEmail", "userUid"]));
 
       if (onAuthChange) {
@@ -99,14 +96,29 @@ const SignInScreen = ({ route }) => {
 
       navigation.navigate("Home");
     } catch (error) {
-      console.error("Signin error:", {
+      let errorMessage = "Failed to sign in. Please check your network and try again.";
+      if (error.response) {
+        errorMessage = error.response.data.error || `Sign in failed: ${error.response.status}`;
+        console.error("Signin error (response):", {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers,
+        });
+      } else if (error.request) {
+        errorMessage = "No response from server. Please check your network.";
+        console.error("Signin error (request):", error.request);
+      } else {
+        errorMessage = error.message;
+        console.error("Signin error (setup):", error.message);
+      }
+      console.error("Signin error details:", {
+        message: errorMessage,
         code: error.code,
-        message: error.message,
         stack: error.stack,
         url: `${Config.API_BASE_URL}/signin`,
         body: { email: formData.email, password: "****" },
       });
-      Alert.alert("Error", error.message || "Failed to sign in. Please check your network and try again.");
+      Alert.alert("Error", errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -169,8 +181,7 @@ const SignInScreen = ({ route }) => {
                   secureTextEntry={!showPassword}
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                  <Icon name={showPassword ? "visibility" : "visibility-off"}
- />
+                  <Icon name={showPassword ? "visibility" : "visibility-off"} size={20} color="#9CA3AF" />
                 </TouchableOpacity>
               </View>
               {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
