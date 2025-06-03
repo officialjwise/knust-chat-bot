@@ -17,8 +17,20 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { auth, db } from "../../firebase";
-import Config from "react-native-config";
 import axios from "axios";
+import axiosRetry from "axios-retry";
+
+const BASE_URL = "https://knust-chat-bot-backend.onrender.com";
+
+// Configure axios-retry
+axiosRetry(axios, {
+  retries: 3, // Retry up to 3 times
+  retryDelay: (retryCount) => retryCount * 2000, // 2s, 4s, 6s delay
+  retryCondition: (error) => {
+    // Retry on timeout or network errors
+    return error.code === "ECONNABORTED" || !error.response;
+  },
+});
 
 const SignUpScreen = () => {
   const [formData, setFormData] = useState({
@@ -67,8 +79,7 @@ const SignUpScreen = () => {
     setIsLoading(true);
 
     try {
-      console.log("API_BASE_URL:", Config.API_BASE_URL);
-      console.log("Sending signup request to:", `${Config.API_BASE_URL}/signup`);
+      console.log("Sending signup request to:", `${BASE_URL}/signup`);
       console.log("Request payload:", {
         email: formData.email,
         password: formData.password,
@@ -76,14 +87,14 @@ const SignUpScreen = () => {
         lastName: formData.lastName,
       });
 
-      const response = await axios.post(`${Config.API_BASE_URL}/signup`, {
+      const response = await axios.post(`${BASE_URL}/signup`, {
         email: formData.email,
         password: formData.password,
         firstName: formData.firstName,
         lastName: formData.lastName,
       }, {
         headers: { "Content-Type": "application/json" },
-        timeout: 10000, // 10-second timeout
+        timeout: 20000, // 20-second timeout
       });
 
       console.log("Signup response:", response.status, response.data);
@@ -114,7 +125,6 @@ const SignUpScreen = () => {
     } catch (error) {
       let errorMessage = "Failed to sign up. Please check your network and try again.";
       if (error.response) {
-        // Server responded with a status other than 2xx
         errorMessage = error.response.data.error || `Signup failed: ${error.response.status}`;
         console.error("Signup error (response):", {
           status: error.response.status,
@@ -122,11 +132,11 @@ const SignUpScreen = () => {
           headers: error.response.headers,
         });
       } else if (error.request) {
-        // Request was made but no response received
-        errorMessage = "No response from server. Please check your network.";
+        errorMessage = error.code === "ECONNABORTED"
+          ? "Server timed out. Please try again or check if the server is running."
+          : "No response from server. Please check your network.";
         console.error("Signup error (request):", error.request);
       } else {
-        // Error setting up the request
         errorMessage = error.message;
         console.error("Signup error (setup):", error.message);
       }
@@ -134,7 +144,7 @@ const SignUpScreen = () => {
         message: errorMessage,
         code: error.code,
         stack: error.stack,
-        url: `${Config.API_BASE_URL}/signup`,
+        url: `${BASE_URL}/signup`,
         body: {
           email: formData.email,
           password: "****",
@@ -310,7 +320,7 @@ const SignUpScreen = () => {
             </View>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -362,7 +372,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 24,
   },
-  signUpButtonDisabled: { opacity: 0.6 },
   signUpButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
   signInContainer: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginBottom: 24 },
   signInText: { color: "#6B7280", fontSize: 14 },

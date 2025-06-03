@@ -17,7 +17,13 @@ const InquiryHistoryScreen = ({ navigation }) => {
     try {
       const savedInquiries = await AsyncStorage.getItem("inquiryHistory")
       if (savedInquiries) {
-        setInquiries(JSON.parse(savedInquiries))
+        const parsed = JSON.parse(savedInquiries)
+        // Convert timestamp strings back to Date objects
+        const inquiriesWithDates = parsed.map(inquiry => ({
+          ...inquiry,
+          timestamp: inquiry.timestamp ? new Date(inquiry.timestamp) : null
+        }))
+        setInquiries(inquiriesWithDates)
       } else {
         // Demo data for illustration
         const demoInquiries = [
@@ -136,8 +142,16 @@ const InquiryHistoryScreen = ({ navigation }) => {
   }
 
   const formatDate = (date) => {
+    if (!date) return "Unknown date"
+    
+    // Convert to Date object if it's not already
+    const dateObj = date instanceof Date ? date : new Date(date)
+    
+    // Check if the date is valid
+    if (isNaN(dateObj.getTime())) return "Invalid date"
+    
     const now = new Date()
-    const diffTime = Math.abs(now - date)
+    const diffTime = Math.abs(now - dateObj)
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
     if (diffDays === 1) {
@@ -147,7 +161,7 @@ const InquiryHistoryScreen = ({ navigation }) => {
     } else if (diffDays <= 7) {
       return `${diffDays - 1} days ago`
     } else {
-      return date.toLocaleDateString()
+      return dateObj.toLocaleDateString()
     }
   }
 

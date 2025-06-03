@@ -17,13 +17,13 @@ import Icon from "react-native-vector-icons/MaterialIcons"
 
 const ProfileScreen = ({ navigation, onLogout }) => {
   const [userProfile, setUserProfile] = useState({
-    name: "John Doe",
-    email: "demo@knust.edu.gh",
+    name: "Rockson Agyamaku",
+    email: "financialrock@knust.edu.gh",
     phone: "+233 24 123 4567",
     studentId: "KN2024001",
     program: "BSc Computer Science",
-    level: "100",
-    joinDate: "2024-01-15",
+    level: "400",
+    joinDate: "2025-06-01",
   })
 
   const [settings, setSettings] = useState({
@@ -123,7 +123,7 @@ const ProfileScreen = ({ navigation, onLogout }) => {
   const handleAbout = () => {
     Alert.alert(
       "About KNUST Pathfinder",
-      "KNUST Pathfinder v1.0.0\n\nYour comprehensive guide to navigating the admission process at Kwame Nkrumah University of Science and Technology.\n\nFeatures:\n• AI-powered assistance\n• Program recommendations\n• Application tracking\n• FAQ and support\n\n© 2024 KNUST. All rights reserved.",
+      "KNUST Pathfinder v1.0.0\n\nYour comprehensive guide to navigating the admission process at Kwame Nkrumah University of Science and Technology.\n\nFeatures:\n• AI-powered assistance\n• Program recommendations\n• Application tracking\n• FAQ and support\n\n© 2025 KNUST. All rights reserved.",
       [{ text: "OK" }],
     )
   }
@@ -294,7 +294,7 @@ const ProfileScreen = ({ navigation, onLogout }) => {
         {/* App Info */}
         <View style={styles.appInfo}>
           <Text style={styles.appInfoText}>KNUST Pathfinder v1.0.0</Text>
-          <Text style={styles.appInfoText}>© 2024 KNUST. All rights reserved.</Text>
+          <Text style={styles.appInfoText}>© 2025 KNUST. All rights reserved.</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

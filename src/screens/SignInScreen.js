@@ -18,8 +18,20 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { auth } from "../../firebase";
-import Config from "react-native-config";
 import axios from "axios";
+import axiosRetry from "axios-retry";
+
+const BASE_URL = "https://knust-chat-bot-backend.onrender.com";
+
+// Configure axios-retry
+axiosRetry(axios, {
+  retries: 3, // Retry up to 3 times
+  retryDelay: (retryCount) => retryCount * 2000, // 2s, 4s, 6s delay
+  retryCondition: (error) => {
+    // Retry on timeout or network errors
+    return error.code === "ECONNABORTED" || !error.response;
+  },
+});
 
 const SignInScreen = ({ route }) => {
   const [formData, setFormData] = useState({
@@ -63,16 +75,15 @@ const SignInScreen = ({ route }) => {
     setIsLoading(true);
 
     try {
-      console.log("API_BASE_URL:", Config.API_BASE_URL);
-      console.log("Attempting to sign in with URL:", `${Config.API_BASE_URL}/signin`);
+      console.log("Attempting to sign in with URL:", `${BASE_URL}/signin`);
       console.log("Request payload:", { email: formData.email, password: "****" });
 
-      const response = await axios.post(`${Config.API_BASE_URL}/signin`, {
+      const response = await axios.post(`${BASE_URL}/signin`, {
         email: formData.email,
         password: formData.password,
       }, {
         headers: { "Content-Type": "application/json" },
-        timeout: 10000, // 10-second timeout
+        timeout: 20000, // 20-second timeout
       });
 
       console.log("Signin response:", response.status, response.data);
@@ -94,7 +105,7 @@ const SignInScreen = ({ route }) => {
         console.log("onAuthChange triggered");
       }
 
-      navigation.navigate("Home");
+      navigation.navigate("HomeScreen");
     } catch (error) {
       let errorMessage = "Failed to sign in. Please check your network and try again.";
       if (error.response) {
@@ -105,7 +116,9 @@ const SignInScreen = ({ route }) => {
           headers: error.response.headers,
         });
       } else if (error.request) {
-        errorMessage = "No response from server. Please check your network.";
+        errorMessage = error.code === "ECONNABORTED"
+          ? "Server timed out. Please try again or check if the server is running."
+          : "No response from server. Please check your network.";
         console.error("Signin error (request):", error.request);
       } else {
         errorMessage = error.message;
@@ -115,7 +128,7 @@ const SignInScreen = ({ route }) => {
         message: errorMessage,
         code: error.code,
         stack: error.stack,
-        url: `${Config.API_BASE_URL}/signin`,
+        url: `${BASE_URL}/signin`,
         body: { email: formData.email, password: "****" },
       });
       Alert.alert("Error", errorMessage);
